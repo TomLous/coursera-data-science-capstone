@@ -1,3 +1,5 @@
+library(data.table)
+
 log <- function(...) {
   cat("[preprocess.R] ", ..., "\n", sep="")
 }
@@ -134,8 +136,33 @@ frequencyTable <- function(termList){
   rownames(freq) <- 1:nrow(freq)
   
   total <- sum(freq$Freq)
-  freq->CumFreq <- cumsum(freq$Freq)
-  freq->Coverage <- freq->CumFreq/total
+  freq$CumFreq <- cumsum(freq$Freq)
+  freq$Coverage <- freq$CumFreq/total
+  freq$CovarageShift <- freq$Coverage-shift(freq$Coverage, fill=0.0, type="lag", n=1)
   
   return(freq)
 }
+
+filterFrequencyTable <- function(freqTable, binCoverageShift=0.01){
+  shiftTotal <- 0
+  
+  freqTable$keep <- FALSE
+  
+  for (n in 1:nrow(freqTable)) {
+    shiftTotal <- shiftTotal + freqTable$CovarageShift[n]
+    
+    if(shiftTotal >= binCoverageShift){
+      freqTable$keep[n] <- TRUE
+      shiftTotal <- 0
+    }
+  }
+  
+  freqTable[freqTable$keep == TRUE,]
+  
+}
+
+coverageFactor <- function(freqTable, coverage){
+  pos <- nrow(freqTable[freqTable$Coverage < coverage,])
+  pos / nrow(freqTable) 
+}
+

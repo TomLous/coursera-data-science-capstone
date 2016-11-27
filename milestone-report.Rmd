@@ -95,6 +95,10 @@ tokenize <- function(dataset){
 }
 ```
 
+```{r, echo=FALSE, warning=FALSE, results='hide'}
+source("utils.R")
+```
+
 ```{r, cache=TRUE}
 twitterSampleENTokenized <- tokenize(twitterENInfo$sample.data)
 newsSampleENTokenized <- tokenize(newsENInfo$sample.data)
@@ -119,6 +123,10 @@ profanityFilter <- function(termList, locale){
   profanities <- readLines(paste0("data/config/",locale,"/profanity.txt"))
   lapply(termList, setdiff, y=profanities)
 }
+```
+
+```{r, echo=FALSE, warning=FALSE, results='hide'}
+source("utils.R")
 ```
 
 ```{r, cache=TRUE}
@@ -158,12 +166,17 @@ frequencyTable <- function(termList){
   rownames(freq) <- 1:nrow(freq)
   
   total <- sum(freq$Freq)
-  freq->CumFreq <- cumsum(freq$Freq)
-  freq->Coverage <- freq->CumFreq/total
+  freq$CumFreq <- cumsum(freq$Freq)
+  freq$Coverage <- freq$CumFreq/total
   
   return(freq)
 }
 ```
+
+```{r, echo=FALSE, warning=FALSE, results='hide'}
+source("utils.R")
+```
+
 
 ```{r, cache=TRUE}
 sampleENTermFrequency <- frequencyTable(sampleENTokenized)
@@ -187,7 +200,21 @@ ggplot(tmp, aes(x=reorder(term,Freq), y=Freq, fill=termLength)) +
           axis.title.y=element_blank(),
           axis.title.x=element_blank())
 ```
+```{r,fig.width=7, fig.height=6, echo=FALSE}
+library(ggplot2)
+tmp <- filterFrequencyTable(sampleENTermFrequency, 0.005)
 
+
+ggplot(tmp, aes(y=as.integer(rownames(tmp)), x=Coverage)) +
+    geom_line() +
+    coord_flip() + 
+    labs(x="Coverage",y="Observations") +
+    theme(panel.border = element_blank(), 
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(), 
+          panel.background = element_blank()
+          )
+```
 ### 3. Check sample
 
 These top terms seem a logical set.
@@ -243,6 +270,7 @@ transformNGram <- function(termList, n=2){
 }
 ```
 
+
 ### 5. Bi-gram
 
 ```{r, cache=TRUE}
@@ -251,6 +279,22 @@ sampleENBiGrams <- transformNGram(sampleENTokenized, 2)
 sampleENBiGramsFrequency <- frequencyTable(sampleENBiGrams)
 
 head(sampleENBiGramsFrequency, 15)
+```
+
+```{r,fig.width=7, fig.height=6, echo=FALSE}
+library(ggplot2)
+tmp <- filterFrequencyTable(sampleENBiGramsFrequency, 0.005)
+
+
+ggplot(tmp, aes(y=as.integer(rownames(tmp)), x=Coverage)) +
+    geom_line() +
+    coord_flip() + 
+    labs(x="Coverage",y="Observations") +
+    theme(panel.border = element_blank(), 
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(), 
+          panel.background = element_blank()
+          )
 ```
 
 ### 6. Tri-gram
@@ -262,4 +306,58 @@ sampleENTriGramsFrequency <- frequencyTable(sampleENTriGrams)
 
 head(sampleENTriGramsFrequency, 15)
 ```
+```{r,fig.width=7, fig.height=6, echo=FALSE}
+library(ggplot2)
+tmp <- filterFrequencyTable(sampleENTriGramsFrequency, 0.005)
 
+
+ggplot(tmp, aes(y=as.integer(rownames(tmp)), x=Coverage)) +
+    geom_line() +
+    coord_flip() + 
+    labs(x="Coverage",y="Observations") +
+    theme(panel.border = element_blank(), 
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(), 
+          panel.background = element_blank()
+          )
+```
+
+
+### 7. Coverage overview
+
+```{r, eval=FALSE}
+coverageFactor <- function(freqTable, coverage){
+  pos <- nrow(freqTable[freqTable$Coverage < coverage,])
+  pos / nrow(freqTable) 
+}
+```
+
+Let's see what the coverage of the n-gram sets is compare to the entire corpus
+
+```{r}
+coverageFactors <- c(0.1,0.5,0.9)
+uniCov <- sapply(coverageFactors, coverageFactor, freqTable=sampleENTermFrequency)
+biCov <- sapply(coverageFactors, coverageFactor, freqTable=sampleENBiGramsFrequency)
+triCov <- sapply(coverageFactors, coverageFactor, freqTable=sampleENTriGramsFrequency)
+
+infoCov <- rbind(uniCov, biCov, triCov)
+rownames(infoCov) <- c("uni-gram", "bi-gram", "tri-gram")
+colnames(infoCov) <- coverageFactors
+
+infoCov
+```
+
+
+
+# Evaluation
+
+## 1. Prediction
+
+We see that small parts of the data are responsible for the bulk of the corpus. This allows prediction to be a smaller model to just focus on the most important parts.
+
+
+## 2. Next steps
+
+* Reevaluate approach and see if sample size adjust,inclusion of stopwords, punctuation, numbers, etc improve prediction
+* Building a predictive model using the identified tokens
+* Wrapping up the results and the developed model as a data product, shiny app.
