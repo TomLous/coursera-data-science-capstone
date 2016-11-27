@@ -1,0 +1,7 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+data/final/*
+milestone-report_cache/*
+cache/*

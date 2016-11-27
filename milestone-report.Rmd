@@ -1,0 +1,265 @@
+---
+title: "Milestone Report"
+author: "Tom Lous"
+date: "25 November 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading & Summaries
+
+For the purpose of creating a predictive input model, we have been supplied with a dataset [https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip](https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip), containing twitter, news and blog data for 4 languages.
+
+For this part we'll be solely focussing on the English corpus.
+
+```{r, cache=TRUE, warning=FALSE}
+enTwitterLines <- readLines("data/final/en_US/en_US.twitter.txt")
+enBlogLines <- readLines("data/final/en_US/en_US.blogs.txt")
+enNewsLines <- readLines("data/final/en_US/en_US.news.txt")
+
+wordCount <- function(lns){
+  sum(sapply(gregexpr("\\S+", lns), length))
+}
+
+meanSentenceLength <- function(lns){
+  mean(sapply(gregexpr("\\S+", lns), length))
+}
+
+lineCount <- function(lns){
+  length(lns)
+}
+
+tRow <- c(lineCount(enTwitterLines), wordCount(enTwitterLines), meanSentenceLength(enTwitterLines))
+bRow <- c(lineCount(enBlogLines), wordCount(enBlogLines), meanSentenceLength(enBlogLines))
+nRow <- c(lineCount(enNewsLines), wordCount(enNewsLines), meanSentenceLength(enNewsLines))
+
+infoEn <- rbind(tRow, bRow, nRow)
+rownames(infoEn) <- c("twitter", "blog", "news")
+colnames(infoEn) <- c("lines", "words", "mean.words.per.line")
+
+infoEn
+```
+
+As we can see all datasets differ in amount of lines, but in total each has roughly between 30-37M words.
+
+
+## Sampling
+
+Since the English language has between 2k and 5k most common used words (depending on which source you lookup), we probably won't need all 100M words to be analyzed. 
+
+There are ways to calculate the needed sample size, but they don't reaaly seem to apply to this problem, however.
+
+If we just take 5% of all datasets we still end up with 5M words to be analyzed
+
+*Check the utils package to see how sampling is done randomly*
+
+```{r, cache=TRUE, warning=FALSE, results='hide'}
+source("utils.R")
+set.seed(11081979)
+
+recreate <- FALSE
+sampleFactor <- 0.05
+info <- createAllSamples("data/final", sampleFactor, recreate)
+
+twitterENInfo <- sampleFile("data/final/en_US/en_US.twitter.txt")
+newsENInfo <- sampleFile("data/final/en_US/en_US.news.txt")
+blogsENInfo <- sampleFile("data/final/en_US/en_US.blogs.txt")
+```
+
+
+These info objects contain the sample data & some meta information for later purposes
+```{r}
+str(twitterENInfo)
+```
+
+## Preprocessing
+
+### 1. Tokenization
+To actually parse the word's we are going to use a **whitespace tokenizer**.
+First we'll split each line into sentences, because the end of a sentence should probably not be a predictor for the next one. This way we'll keep tokization independant of context.
+Then we'll remove all non word chars, lowercase and split on whitespace. 
+In the end we'll have a vector of term vectors
+
+```{r, eval=FALSE}
+tokenize <- function(dataset){
+  dataset <- unlist(strsplit(dataset, "[\\.\\,!\\?\\:]+"))
+  dataset <- tolower(dataset)
+  dataset <- gsub("[^a-z\\s]", " ", dataset)
+  dataset <- gsub("\\s+", " ", dataset)
+  dataset <- trimws(dataset)
+  dataset <- strsplit(dataset, "\\s")
+  return(dataset)
+}
+```
+
+```{r, cache=TRUE}
+twitterSampleENTokenized <- tokenize(twitterENInfo$sample.data)
+newsSampleENTokenized <- tokenize(newsENInfo$sample.data)
+blogSampleENTokenized <- tokenize(blogsENInfo$sample.data)
+```
+
+### 2. Merging
+
+Since in essence the data is now uniformly for the EN corpus, we should combine these into one dataset
+
+```{r, cache=TRUE}
+sampleENTokenized <- c(twitterSampleENTokenized, newsSampleENTokenized, blogSampleENTokenized)
+```
+
+### 3. Filtering
+Next remove some profanity we don't want in our dataset (we should never suggest profanity)
+
+For each language we've downloaded a publicly kept profanity list from [https://github.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words](https://github.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words)
+
+```{r, eval=FALSE}
+profanityFilter <- function(termList, locale){
+  profanities <- readLines(paste0("data/config/",locale,"/profanity.txt"))
+  lapply(termList, setdiff, y=profanities)
+}
+```
+
+```{r, cache=TRUE}
+sampleENTokenized <- profanityFilter(sampleENTokenized, twitterENInfo$locale)
+```
+
+We could use to filter other terms, like stopwords or 1 or 2 letter words, but although they probably will not be good predictors themselves (like: the, and, or) they will probably follow some other terms and could be predicted. Stripping them out will alter the syntacticle structure to much and therefore having a major effect on the predictions.
+
+
+## Explore
+
+### 1. View data
+Now we have a sample tokenize dataset.
+Let's explore
+
+```{r}
+head(sampleENTokenized, 3)
+
+#Num lines
+length(sampleENTokenized)
+
+#Num terms
+sum(sapply(sampleENTokenized, length))
+```
+
+We ended up with almost 5M terms divided over >700k sentences (term vectors)
+
+### 2. Term frequencies
+
+Using the frequencyTable function we can see what are the most common words in our dataset
+
+```{r, eval=FALSE}
+frequencyTable <- function(termList){
+  term <- data.frame(unlist(termList))
+  grouped <- as.data.frame(table(term))
+  freq <- grouped[order(-grouped$Freq),]
+  rownames(freq) <- 1:nrow(freq)
+  
+  total <- sum(freq$Freq)
+  freq->CumFreq <- cumsum(freq$Freq)
+  freq->Coverage <- freq->CumFreq/total
+  
+  return(freq)
+}
+```
+
+```{r, cache=TRUE}
+sampleENTermFrequency <- frequencyTable(sampleENTokenized)
+
+head(sampleENTermFrequency, 15)
+```
+
+```{r,fig.width=7, fig.height=6, echo=FALSE}
+library(ggplot2)
+tmp <- sampleENTermFrequency[1:50,]
+
+tmp$termLength <-  nchar(as.character(tmp$term))
+
+ggplot(tmp, aes(x=reorder(term,Freq), y=Freq, fill=termLength)) +
+    geom_bar(stat="identity") +
+    coord_flip() + 
+    theme(panel.border = element_blank(), 
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(), 
+          panel.background = element_blank(),
+          axis.title.y=element_blank(),
+          axis.title.x=element_blank())
+```
+
+### 3. Check sample
+
+These top terms seem a logical set.
+
+To make sure we can compare our frequencies with a general dataset that collects this information, to see how examplary our sample is for the real word.
+We downloaded the dataset [http://www.wordfrequency.info/top5000.asp](http://www.wordfrequency.info/top5000.asp)
+
+
+```{r, cache=TRUE}
+realENWordFrequency <- read.csv("data/config/en_US/word-frequency.csv")
+realENWords <- tolower(as.character(unname(realENWordFrequency$Word)))
+
+topLimit <- length(realENWords)
+
+sampleENTermsSlice <- as.character(sampleENTermFrequency$term)[1:topLimit]
+
+#Number of same top frequency words in
+numIntersect <- length(intersect(realENWords,sampleENTermsSlice))
+numIntersect
+
+# Coverage factor
+numIntersect/topLimit 
+```
+
+A coverage factor of 0.57 is maybe not the best, but good enought to continu.
+Perhaps increasing the samplesize will retun better results, or validate the top list
+
+### 4. Create n-grams
+
+Now we have term vectors and we are reasonably sure about the quality, we can now create n-grams using this function:
+
+```{r, eval=FALSE}
+createNgram <- function(vec, n=2){
+  l <- length(vec) 
+  if(l < n){
+    return(c())
+  }else if(l == n){
+    return(paste(vec, collapse = " "))
+  }else{
+    numNgrams <- l-n+1
+    mtrx <- matrix(nrow=numNgrams, ncol=n)
+    for(i in 1:n){
+      m <- l - n + i
+      mtrx[,i] <- vec[i:m]
+    }
+    ngrams <- apply(mtrx, 1, paste, collapse=" ")
+    return(ngrams)
+  }
+} 
+
+transformNGram <- function(termList, n=2){
+  lapply(termList, createNgram, n=n)
+}
+```
+
+### 5. Bi-gram
+
+```{r, cache=TRUE}
+sampleENBiGrams <- transformNGram(sampleENTokenized, 2)
+
+sampleENBiGramsFrequency <- frequencyTable(sampleENBiGrams)
+
+head(sampleENBiGramsFrequency, 15)
+```
+
+### 6. Tri-gram
+
+```{r, cache=TRUE}
+sampleENTriGrams <- transformNGram(sampleENTokenized, 3)
+
+sampleENTriGramsFrequency <- frequencyTable(sampleENTriGrams)
+
+head(sampleENTriGramsFrequency, 15)
+```
+
