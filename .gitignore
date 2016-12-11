@@ -5,3 +5,4 @@
 data/final/*
 milestone-report_cache/*
 cache/*
+*.RData

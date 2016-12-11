@@ -1,4 +1,7 @@
 library(data.table)
+library(ngram)
+library(stringr)
+library(plyr)
 
 log <- function(...) {
   cat("[preprocess.R] ", ..., "\n", sep="")
@@ -112,7 +115,7 @@ createNgram <- function(vec, n=2){
   if(l < n){
     return(c())
   }else if(l == n){
-    return(paste(vec, collapse = " "))
+    return(paste(vec, collapse=" "))
   }else{
     numNgrams <- l-n+1
     mtrx <- matrix(nrow=numNgrams, ncol=n)
@@ -126,21 +129,66 @@ createNgram <- function(vec, n=2){
 } 
 
 transformNGram <- function(termList, n=2){
-  lapply(termList, createNgram, n=n)
+  unlist(lapply(termList, createNgram, n=n))
 }
 
-frequencyTable <- function(termList){
-  term <- data.frame(unlist(termList))
-  grouped <- as.data.frame(table(term))
-  freq <- grouped[order(-grouped$Freq),]
-  rownames(freq) <- 1:nrow(freq)
+#createNgram <- function(vec, n=2){
+#  l <- length(vec) 
+#  if(l < n){
+#    return(c())
+#  }else if(l == n){
+#    return(list(vec))
+#  }else{
+#    numNgrams <- l-n+1
+#    mtrx <- matrix(nrow=numNgrams, ncol=n)
+#    for(i in 1:n){
+#      m <- l - n + i
+#      mtrx[,i] <- vec[i:m]
+#    }
+#    ngrams <- unname(split(mtrx, c(row(mtrx))))
+#    return(ngrams)
+#  }
+#} 
+
+#transformNGram <- function(termList, n=2){
+#  unlist(sapply(termList, createNgram, n=n), recursive = FALSE)
+#}
+
+frequencyTable <- function(termList, n){
+  grouped <- as.data.frame(table(termList), stringsAsFactors=FALSE)
+  rm(termList); gc()
   
-  total <- sum(freq$Freq)
-  freq$CumFreq <- cumsum(freq$Freq)
-  freq$Coverage <- freq$CumFreq/total
-  freq$CovarageShift <- freq$Coverage-shift(freq$Coverage, fill=0.0, type="lag", n=1)
+  grouped <- rename(grouped, c("Freq"="freq"))
+  colnames(grouped)[1] <- "ngrams"
   
-  return(freq)
+  phraseTable <- grouped[order(-grouped$freq),]
+  rm(grouped); gc()
+  
+  rownames(phraseTable) <- 1:nrow(phraseTable)
+  
+  total <- sum(phraseTable$freq)
+  fraction <- 1 / total
+  
+  phraseTable$prop <- phraseTable$freq * fraction
+  #phraseTable$cumfreq <- cumsum(phraseTable$freq)
+  #phraseTable$coverage <- phraseTable$cumfreq/total
+  phraseTable$n <- n
+  
+  #terms <- str_split(trimws(phraseTable$ngrams),"\\s")
+  #phraseTable$suggest <- sapply(terms, tail, n=1)
+  if(n > 1){
+    phraseTable$idx <- regexpr(" [^ ]*$", phraseTable$ngrams)
+    phraseTable$suggest <- substr(phraseTable$ngrams, phraseTable$idx+1, nchar(phraseTable$ngrams))
+    phraseTable$lookup <-  substr(phraseTable$ngrams, 1, phraseTable$idx-1)
+  }else{
+    phraseTable$idx <- NA
+    phraseTable$suggest <- phraseTable$ngrams
+    phraseTable$lookup <- ""
+  }
+  
+  #rm(terms); gc()
+  
+  return(phraseTable)
 }
 
 filterFrequencyTable <- function(freqTable, binCoverageShift=0.01){
@@ -165,4 +213,17 @@ coverageFactor <- function(freqTable, coverage){
   pos <- nrow(freqTable[freqTable$Coverage < coverage,])
   pos / nrow(freqTable) 
 }
+
+
+preProcessData <- function(datasetIn){
+  dataset <- sapply(datasetIn, preprocess, case = "lower", remove.punct = FALSE, remove.numbers = TRUE, fix.spacing = TRUE)
+  names(dataset) <- NULL
+  dataset <- unlist(strsplit(dataset, "[\\.\\!\\?:;]+"))
+  dataset <- gsub("[^a-z0-9\\'\\-_\\\\\\s]", " ", dataset)
+  dataset <- gsub("\\s+", " ", dataset)
+  dataset <- trimws(dataset)
+  dataset <- dataset[!nchar(dataset) == 0]
+  return(dataset)
+}
+
 
