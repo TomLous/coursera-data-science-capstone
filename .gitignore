@@ -3,6 +3,9 @@
 .RData
 .Ruserdata
 data/final/*
+data/sample/*
+data/sample*/*
+data/cache/*
 milestone-report_cache/*
 cache/*
 *.RData

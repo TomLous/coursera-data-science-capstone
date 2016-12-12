@@ -3,9 +3,21 @@ library(ngram)
 library(stringr)
 library(plyr)
 
-log <- function(...) {
-  cat("[preprocess.R] ", ..., "\n", sep="")
+log <- function(..., obj1=NULL, obj2=NULL) {
+  if(exists("verbose") && verbose){
+    cat("-------------------------------")
+    cat("\n> ", ..., "\n", sep=" ")
+    if(!is.null(obj1)){
+      print(obj1)
+    }
+    if(!is.null(obj2)){
+      print(obj2)
+    }
+  }
 }
+
+
+
 
 
 sampleFile <- function(filePath, sampleFactor=0.1, recreate=FALSE){
@@ -74,7 +86,7 @@ createAllSamples <- function(startDir, sampleFactor, recreate=FALSE){
 tokenize <- function(dataset, flatten=FALSE){
   dataset <- unlist(strsplit(dataset, "[\\.\\,!\\?\\:]+"))
   dataset <- tolower(dataset)
-  dataset <- gsub("[^a-z\\s]", " ", dataset)
+  dataset <- gsub("[^a-z'\\s]", " ", dataset)
   dataset <- gsub("\\s+", " ", dataset)
   dataset <- trimws(dataset)
   dataset <- strsplit(dataset, "\\s")
@@ -129,7 +141,8 @@ createNgram <- function(vec, n=2){
 } 
 
 transformNGram <- function(termList, n=2){
-  unlist(lapply(termList, createNgram, n=n))
+  if(n <= 1) unlist(termList)
+  else unlist(lapply(termList, createNgram, n=n))
 }
 
 #createNgram <- function(vec, n=2){
@@ -156,13 +169,13 @@ transformNGram <- function(termList, n=2){
 
 frequencyTable <- function(termList, n){
   grouped <- as.data.frame(table(termList), stringsAsFactors=FALSE)
-  rm(termList); gc()
+  rm(termList); gc(verbose=FALSE)
   
   grouped <- rename(grouped, c("Freq"="freq"))
   colnames(grouped)[1] <- "ngrams"
   
   phraseTable <- grouped[order(-grouped$freq),]
-  rm(grouped); gc()
+  rm(grouped); gc(verbose=FALSE)
   
   rownames(phraseTable) <- 1:nrow(phraseTable)
   
@@ -186,7 +199,7 @@ frequencyTable <- function(termList, n){
     phraseTable$lookup <- ""
   }
   
-  #rm(terms); gc()
+  #rm(terms); gc(verbose=FALSE)
   
   return(phraseTable)
 }
@@ -209,6 +222,21 @@ filterFrequencyTable <- function(freqTable, binCoverageShift=0.01){
   
 }
 
+
+lookupTable <- function(freqTable, minFreq=2){
+  lookup <- freqTable[freqTable$freq >= minFreq,]
+  #a <- lookup[!duplicated(lookup$lookup),]
+  #other <- lookup[duplicated(lookup$lookup),]
+  #b <- other[!duplicated(other$lookup),]
+  #other <- other[duplicated(other$lookup),]
+  #c <- other[!duplicated(other$lookup),]
+  #other <- other[duplicated(other$lookup),]
+  #d <- other[!duplicated(other$lookup),]
+  #lookup <- rbind(a,b,c,d)
+  lookup <- lookup[,c("lookup","suggest","prop","n","freq")]
+  return(lookup)
+}
+
 coverageFactor <- function(freqTable, coverage){
   pos <- nrow(freqTable[freqTable$Coverage < coverage,])
   pos / nrow(freqTable) 
@@ -219,11 +247,50 @@ preProcessData <- function(datasetIn){
   dataset <- sapply(datasetIn, preprocess, case = "lower", remove.punct = FALSE, remove.numbers = TRUE, fix.spacing = TRUE)
   names(dataset) <- NULL
   dataset <- unlist(strsplit(dataset, "[\\.\\!\\?:;]+"))
+  dataset <- gsub("[`'’‘']", "'", dataset)
   dataset <- gsub("[^a-z0-9\\'\\-_\\\\\\s]", " ", dataset)
-  dataset <- gsub("\\s+", " ", dataset)
   dataset <- trimws(dataset)
   dataset <- dataset[!nchar(dataset) == 0]
   return(dataset)
 }
 
 
+missingVar <- function(varname, locale, postfix=NULL){
+  if(!exists(varname, envir=globalenv())){
+    loadVar(varname, locale, postfix)
+  }
+  return(!exists(varname, envir=globalenv()))
+}
+
+loadVar  <- function(varname, locale, postfix=NULL){
+    fname <- paste0("data/cache/",varname,".",locale,postfix,".RData")
+    if(file.exists(fname)){
+      log("Loading var from file", varname, fname)
+      try(load(fname, envir=globalenv()), silent = TRUE)
+    }
+}
+
+
+
+storeVar <- function(var, locale, postfix=NULL, force=FALSE){
+  varname = deparse(substitute(var))
+  
+  log("Storing var: ", varname)
+  
+  fname <- paste0("data/cache/",varname,".",locale,postfix,".RData")
+  if(!file.exists(fname) || force){
+    log("Storing var to file", varname, " => ", fname)
+    save(list=c(varname), file=fname)
+  }else{
+    log("Already exists", fname)
+  }
+}
+
+
+
+
+cleanup <- function(envvar){
+  suppressWarnings(try(rm(list=c(deparse(substitute(envvar))), envir=globalenv()), silent = TRUE))
+  suppressWarnings(try(rm(list=c(deparse(substitute(envvar))),  envir=parent.frame()), silent = TRUE))
+  invisible(gc(verbose = FALSE))
+}

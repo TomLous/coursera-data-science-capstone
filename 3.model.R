@@ -1,71 +1,118 @@
 source("utils.R")
 
 locale <- "en_US"
+folder <- "final"
+filePostfix <- if(folder == "sample") ".sample" else ""
+grams <- 7
+minFreq <- 2
+verbose <- TRUE
+debug <- TRUE
 
-
-
-# load
-twitter <- readLines(paste0("data/final/",locale,"/",locale,".twitter.txt"))
-news <- readLines(paste0("data/final/",locale,"/",locale,".news.txt"))
-blogs <- readLines(paste0("data/final/",locale,"/",locale,".blogs.txt"))
-
-# combine
-#corpusEn <- c(twitterEN$sample.data, newsEN$sample.data, blogsEN$sample.data)
-corpus <- c(twitter, news, blogs)
-
-# preprocess
-
-corpusPreprocessed <- preProcessData(corpus)
-
-corpusTokenized <-  tokenize(corpusPreprocessed)
-corpusTokenized <- profanityFilter(corpusTokenized, locale)
-
-# ngram
-uniGram <- unlist(corpusTokenized)
-biGram <- transformNGram(corpusTokenized, 2)
-triGram <- transformNGram(corpusTokenized, 3)
-quadGram <- transformNGram(corpusTokenized, 4)
-
-# ngram
-uniGram <- ngram(corpusEnPreprocessed[str_count(corpusEnPreprocessed, " ") >= 0], n=1, sep = " ")
-biGram <- ngram(corpusEnPreprocessed[str_count(corpusEnPreprocessed, " ") >= 1], n=2, sep = " ")
-triGram <- ngram(corpusEnPreprocessed[str_count(corpusEnPreprocessed, " ") >= 2], n=3, sep = " ")
-quadGram <- ngram(corpusEnPreprocessed[str_count(corpusEnPreprocessed, " ") >= 3], n=4, sep = " ")
-
-#grams <- c(uniGram, biGram, triGram, quadGram)
-
-#generate usefull tables for lookup
-genPhraseTable <- function(gram){
-  n <- gram@n
-  phraseTable <- get.phrasetable(gram)
-  terms <- str_split(trimws(phraseTable$ngrams),"\\s")
-  phraseTable$suggest <- sapply(terms, tail, n=1)
+# load the corpus and tokenize it
+if(missingVar("corpusTokenized",locale)){
+  if(missingVar("corpusPreprocessed",locale)){
+    if(missingVar("corpus",locale)){
+      
+      # load source data
+      log("Loading data", folder, locale)
+      twitter <- readLines(paste0("data/",folder,"/",locale,"/",locale,".twitter",filePostfix,".txt"))
+      news <- readLines(paste0("data/",folder,"/",locale,"/",locale,".news",filePostfix,".txt"))
+      blogs <- readLines(paste0("data/",folder,"/",locale,"/",locale,".blogs",filePostfix,".txt"))
+      
+      # combine into 1 big var
+      corpus <- c(twitter, news, blogs)
+      
+      # remove old vars (memory management)
+      cleanup(twitter)
+      cleanup(news)
+      cleanup(blogs)
+      
+      # cache file 
+      storeVar(corpus, locale)
+    }
+    
+    # preprocess raw text files into seperate lines
+    log("Preprocessing corpus, # lines:", length(corpus))
+    corpusPreprocessed <- preProcessData(corpus)
+    
+    # cache preprocessed
+    storeVar(corpusPreprocessed, locale)
+    cleanup(corpus)
+  }
   
-  nTerms <- n-1
-  phraseTable$lookup <-  sapply(lapply(terms, head, n=nTerms), paste, collapse=" ")
-  phraseTable$n <- n
   
-  return(phraseTable)
+  # Tokenize all string
+  log("Tokenizing corpus, # lines:", length(corpusPreprocessed))
+  corpusTokenized <-  tokenize(corpusPreprocessed)
+  
+  # remove profanity
+  corpusTokenized <- profanityFilter(corpusTokenized, locale)
+  
+  # remove old vars (memory management)
+  storeVar(corpusTokenized, locale)
+  cleanup(corpusPreprocessed)
 }
 
-uniGramL <- genPhraseTable(uniGram)
-biGramL <- genPhraseTable(biGram)
-triGramL <- genPhraseTable(triGram)
-quadGramL <- genPhraseTable(quadGram)
-
-twitterENTokenized <- tokenize(twitterEN$sample.data)
-twitterENTokenized <- profanityFilter(twitterENTokenized, twitterEN$locale)
-#twitterENTokenized <- stopwordFilter(twitterENTokenized, twitterEN$locale)
-#twitterENTokenized <- shortTermFilter(twitterENTokenized, 2)
-
-twitterENBiGrams <- transformNGram(twitterENTokenized, 2)
+# Here we should have tokenized data for creating the n-grams
+log("Tokenized corpus, # lines:", length(corpusTokenized))
 
 
+# create filal datastructure for all n-gram Lookup Tables
+ngramLookupTables <- list()
 
-#ngramLookupTables <- lapply(grams, genPhraseTable)
+# loop over all gram n's
 
-ngramLookupTables <- rbind(uniGramL, biGramL, triGramL, quadGramL)
+for(gram in 1:grams){
+  
+  log("Creating ngram", gram)
+  gramName <- paste0("gram",gram)
+  postfix <- paste0(".",gramName)
+  
+  # Create or load the n-gram lookup (list of all unique n-gram lookups)
+  if(missingVar("gramLookupTable",locale,postfix)){
+    
+    # Create or load the n-gram frequancy (list of all aggregated & sorted n-gram's )
+    if(missingVar("gramFrequencyTable",locale,postfix)){
+      
+      # Create or load the n-gram table (list of all n-gram)
+      if(missingVar("gramTable",locale,postfix)){
+       
+            log("Generating n-gram table",gram)
+            gramTable <- transformNGram(corpusTokenized, gram)
+            log("# rows", length(gramTable))
+      
+            storeVar(gramTable, locale, postfix)
+      }
+      
+      log("Generating n-gram Frequency Table",gram)
+      gramFrequencyTable <- frequencyTable(gramTable, gram)
+      log("# rows", nrow(gramFrequencyTable))
+  
+      storeVar(gramFrequencyTable, locale, postfix)
+      cleanup(gramTable)
+    }
+    
+    log("Generating n-gram Lookup Table",gram)
+    gramLookupTable <- lookupTable(gramFrequencyTable, minFreq)
+    log("# rows", nrow(gramLookupTable))
+      
+    storeVar(gramLookupTable, locale, postfix)
+    cleanup(gramFrequencyTable)
+  }
+      
+  if(debug){
+    gramLookupTableName <- paste0(gramName,"LookupTable")
+    log("Assign lookuptable, ",gramLookupTableName)
+    assign(gramLookupTableName, gramLookupTable, envir=globalenv())
+  }
+  
+  log("Adding to ngramLookupTables list",gram)
+  ngramLookupTables[[gram]] <- gramLookupTable
+    
+  cleanup(gramLookupTable)
+}
 
-#store 
-save(ngramLookupTables, file="ngramLookupTables.RData")
+log("Storing lookup tables",gram)
+storeVar(ngramLookupTables, locale, force=TRUE)
+
 
