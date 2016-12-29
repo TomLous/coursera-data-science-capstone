@@ -13,9 +13,11 @@ if(!"shinysky" %in% rownames(installed.packages())){
 
 library(shiny)
 library(shinysky)
+#library(shinyjs)
 
 # Define UI for application that draws a histogram
 shinyUI(fluidPage(
+  #useShinyjs(),
   tags$head(
     tags$script(src="extra.js"),
     tags$link(rel = "stylesheet", type = "text/css", href = "extra.css")
@@ -26,10 +28,10 @@ shinyUI(fluidPage(
     textInput.typeahead(
       id="text"
       ,placeholder="Type a sentence"
-      ,local=data.frame(name=c("name1","name2"))
-      ,valueKey = "name"
-      ,tokens=c(1,2)
-      ,template = HTML("<p class='repo-name'>{{name}}</p>")
+      ,local=data.frame(sentence=c("have a nice week"),suggestion=c("week"))
+      ,valueKey="sentence"
+      ,tokens=c(0)
+      ,template = HTML("<p class='suggest'>{{suggestion}}</p>")
     ),
     br(),br(),
     verbatimTextOutput("suggest"),

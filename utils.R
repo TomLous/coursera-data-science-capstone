@@ -356,4 +356,27 @@ recursiveLookup <- function(nIter, nMax, terms, phraseTables, alpha, suggestions
   return(recursiveLookup(nIter-1, nMax, terms, phraseTables, alpha, suggestions, completeWord))
 }
 
-
+concatWithOverlap<- function(str1, str2){
+  minI <- min(nchar(str1),nchar(str2))
+  
+  #cat(paste0("Testing `",str1,"` `",str2,"`\n"))
+  repeat{
+    left <- str_sub(str2,1,minI)
+    right <- str_sub(str1,-minI)
+    if(left == right){
+      #cat(paste("Found",minI,"\n"))
+      loop <- FALSE 
+    }
+    else
+    {
+      #cat(paste0(" `",left,"`!=`",right,"`\n"))
+      minI <- minI - 1 
+      loop <- minI > 0
+    }
+    if(!loop){
+      break
+    }
+  }
+  
+  paste0(str1,str_sub(str2,minI+1))#, " [",minI,"]")
+}
