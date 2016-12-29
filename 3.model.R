@@ -1,7 +1,7 @@
 source("utils.R")
 
 locale <- "en_US"
-folder <- "final"
+folder <- "sample"
 filePostfix <- if(folder == "sample") ".sample" else ""
 grams <- 7
 minFreq <- 2

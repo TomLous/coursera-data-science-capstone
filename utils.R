@@ -4,9 +4,11 @@ library(stringr)
 library(plyr)
 
 log <- function(..., obj1=NULL, obj2=NULL) {
+  #cat(file=stderr(), exists("verbose"))
+  #cat(file=stderr(), verbose)
   if(exists("verbose") && verbose){
-    cat("-------------------------------")
-    cat("\n> ", ..., "\n", sep=" ")
+    cat(file=stderr(),"-------------------------------")
+    cat(file=stderr(),"\n> ", ..., "\n", sep=" ")
     if(!is.null(obj1)){
       print(obj1)
     }
@@ -225,14 +227,14 @@ filterFrequencyTable <- function(freqTable, binCoverageShift=0.01){
 
 lookupTable <- function(freqTable, minFreq=2){
   lookup <- freqTable[freqTable$freq >= minFreq,]
-  #a <- lookup[!duplicated(lookup$lookup),]
+  a <- lookup[!duplicated(lookup$lookup),]
   #other <- lookup[duplicated(lookup$lookup),]
   #b <- other[!duplicated(other$lookup),]
   #other <- other[duplicated(other$lookup),]
   #c <- other[!duplicated(other$lookup),]
   #other <- other[duplicated(other$lookup),]
   #d <- other[!duplicated(other$lookup),]
-  #lookup <- rbind(a,b,c,d)
+  lookup <- a #rbind(a)
   lookup <- lookup[,c("lookup","suggest","prop","n","freq")]
   return(lookup)
 }
@@ -294,3 +296,64 @@ cleanup <- function(envvar){
   suppressWarnings(try(rm(list=c(deparse(substitute(envvar))),  envir=parent.frame()), silent = TRUE))
   invisible(gc(verbose = FALSE))
 }
+
+predictSuggest <- function(phrase, phraseTables, completeWord=TRUE, alpha=0.4){
+  predictTop(phrase, phraseTables, completeWord, alpha)[1, ]
+}
+
+predictTop <- function(phrase, phraseTables, completeWord=TRUE, alpha=0.4, top=10){
+    
+    terms <- unlist(tokenize(preProcessData(phrase)))
+    #terms <- unlist(strsplit(preProcessData(phrase), "\\s")) #split in list of unigrams
+    startGram <- min(length(phraseTables), length(terms)+1) # determine the starting n-gram model
+    
+    suggestions <- recursiveLookup(startGram, startGram, terms, phraseTables, alpha, NULL, completeWord)
+    
+    suggestions <- setNames(aggregate(score ~ suggest + lookup + n,suggestions,max), c("suggest","lookup","n", "score"))
+    
+    suggestions <- suggestions[order(-suggestions$n, -suggestions$score),]
+    
+    rownames(suggestions) <- 1:nrow(suggestions)
+    
+    top <- min(nrow(suggestions), top)
+    
+    suggestions <- suggestions[1:top, ]
+    
+    return(suggestions) 
+    
+}
+
+
+recursiveLookup <- function(nIter, nMax, terms, phraseTables, alpha, suggestions, completeWord=TRUE){
+  if(nIter < 1) return(suggestions)
+  
+  lookupTerms <- tail(terms, n=nIter-1)
+  lookup <- paste(lookupTerms, collapse = " ")
+  
+  
+  phraseTable <- phraseTables[[nIter]]
+  if(completeWord){
+    phraseTable <- phraseTable[phraseTable$lookup == lookup, ]
+  }else{
+    phraseTable <- phraseTable[startsWith(phraseTable$lookup,lookup), ]
+  }
+  phraseTable$score <- phraseTable$prop * alpha^(nMax-nIter)
+  
+  maxRows <- min(nrow(phraseTable), 1000)
+  if(maxRows > 0){
+    phraseTable$n <- nIter
+    phraseTable <- phraseTable[1:maxRows,c("suggest","score","n","lookup")]
+  }
+  
+  
+  suggestions <- rbind(suggestions, phraseTable)
+  
+  if(nrow(phraseTable)>0){
+   # return(suggestions)
+  }
+  
+  
+  return(recursiveLookup(nIter-1, nMax, terms, phraseTables, alpha, suggestions, completeWord))
+}
+
+

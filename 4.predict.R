@@ -1,58 +1,6 @@
 source("utils.R")
 loadVar("ngramLookupTables", "en_US")
 
-predict <- function(phrase, phraseTables, alpha=0.4, top=10){
-  terms <- unlist(tokenize(preProcessData(phrase)))
-  #terms <- unlist(strsplit(preProcessData(phrase), "\\s")) #split in list of unigrams
-  startGram <- min(length(phraseTables), length(terms)+1) # determine the starting n-gram model
-  
-  suggestions <- rec(startGram, startGram, terms, phraseTables, alpha, NULL)
-  
-  suggestions <- setNames(aggregate(score ~ suggest,suggestions,max), c("suggest","score"))
-  
-  suggestions <- suggestions[order(-suggestions$score),]
-  
-  rownames(suggestions) <- 1:nrow(suggestions)
-  
-  top <- min(nrow(suggestions), top)
-  
-  suggestions <- suggestions[1:top, ]
-  
-  return(suggestions) 
-}
-
-
-rec <- function(nIter, nMax, terms, phraseTables, alpha, suggestions){
-  if(nIter < 1) return(suggestions)
-  
-  lookupTerms <- tail(terms, n=nIter-1)
-  lookup <- paste(lookupTerms, collapse = " ")
-  
-  
-  phraseTable <- phraseTables[[nIter]]
-  phraseTable <- phraseTable[phraseTable$lookup == lookup, ]
-  phraseTable$score <- phraseTable$prop * alpha^(nMax-nIter)
-  
-  maxRows <- min(nrow(phraseTable), 1000)
-  if(maxRows > 0){
-    phraseTable$n <- nIter
-    phraseTable <- phraseTable[1:maxRows,c("suggest","score","n")]
-  }
-  
-  
-  suggestions <- rbind(suggestions, phraseTable)
-  
-  if(nrow(phraseTable)>0){
-    return(suggestions)
-  }
-  
-  
-  
-  
-  return(rec(nIter-1, nMax, terms, phraseTables, alpha, suggestions))
-}
-
-
 
 
 
@@ -87,7 +35,7 @@ checks <- rbind(
 
 
 for (x in 1:nrow(checks)) {
-  res <- predict(checks[x, 1], ngramLookupTables, top=10000)
+  res <- predictSuggest(checks[x, 1], ngramLookupTables, top=10000)
   matches <- res[res$suggest %in% checks[x,2:5], ]
   
   suggest <- NA
