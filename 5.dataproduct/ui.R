@@ -8,14 +8,27 @@
 #
 
 library(shiny)
+library(shinysky)
 
 # Define UI for application that draws a histogram
 shinyUI(fluidPage(
+  tags$head(
+    tags$script(src="extra.js"),
+    tags$link(rel = "stylesheet", type = "text/css", href = "extra.css")
+  ),
   
-  # Application title
-  titlePanel("Predictive text"),
-  
-  textInput("text", "Input", ""),
-  verbatimTextOutput("suggest")
+  mainPanel(
+    titlePanel("Predictive Text"),
+    textInput.typeahead(
+      id="text"
+      ,placeholder="Type a sentence"
+      ,local=data.frame(name=c("name1","name2"))
+      ,valueKey = "name"
+      ,tokens=c(1,2)
+      ,template = HTML("<p class='repo-name'>{{name}}</p>")
+    ),
+    br(),br(),
+    verbatimTextOutput("suggest")
+  )
   
 ))
