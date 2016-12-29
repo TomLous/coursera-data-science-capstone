@@ -6,6 +6,10 @@
 # 
 #    http://shiny.rstudio.com/
 #
+if(!"shinysky" %in% rownames(installed.packages())){
+  devtools::install_github("ShinySky","AnalytixWare")
+}
+
 
 library(shiny)
 library(shinysky)
@@ -28,7 +32,8 @@ shinyUI(fluidPage(
       ,template = HTML("<p class='repo-name'>{{name}}</p>")
     ),
     br(),br(),
-    verbatimTextOutput("suggest")
+    verbatimTextOutput("suggest"),
+    verbatimTextOutput("debug")
   )
   
 ))
