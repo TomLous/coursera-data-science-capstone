@@ -32,14 +32,15 @@ shinyServer(function(input, output, session) {
         suggestions <- predictTop(text, ngramLookupTables, completeWord = endOfWord)
         #update_typeahead
         dataset <- suggestionsToTypeAhead(text,suggestions,endOfWord)
-        tokens <- sapply(as.numeric(rownames(dataset)), toString)
+        #tokens <- sapply(as.numeric(rownames(dataset)), toString)
+        tokens <- unname(sapply(dataset$sentence, strsplit, split=" "))
         session$sendCustomMessage(type = "updateSuggestions", list(
           id="text"
           ,placeholder="Type a sentence"
           ,local=dataset
           ,valueKey="sentence"
           ,tokens=tokens
-          ,template = HTML("<p class='suggest'>{{suggestion}}</p>")
+          ,template = HTML("<p class='suggest'>{{sentence}}</p>")
           )
         )
         paste(dataset[1,"sentence"])
