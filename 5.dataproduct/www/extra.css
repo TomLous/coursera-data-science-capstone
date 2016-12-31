@@ -1,1 +1,5 @@
-.twitter-typeahead, .tt-hint, .tt-input, .tt-menu, input.typeahead { width: 100%; }
+.twitter-typeahead, .tt-hint, .tt-input, .tt-menu, input.typeahead { width: 100%;}
+
+input.tt-hint, .tt-input,input.typeahead{
+ height: 50px;
+ }
