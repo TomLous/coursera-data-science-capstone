@@ -28,9 +28,9 @@ shinyUI(fluidPage(
     textInput.typeahead(
       id="text"
       ,placeholder="Type a sentence"
-      ,local=data.frame(sentence=c("have a nice week"),suggestion=c("week"))
+      ,local=data.frame(sentence=c("you","you are"),suggestion=c("you're","you're great"))
       ,valueKey="sentence"
-      ,tokens=c(0)
+      ,tokens=c(1,2)
       ,template = HTML("<p class='suggest'>{{suggestion}}</p>")
     ),
     br(),br(),
