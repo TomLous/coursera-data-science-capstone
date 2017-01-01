@@ -4,25 +4,47 @@ author: Tom Lous
 date: 2017-01-01
 autosize: true
 
-First Slide
+Unlocking the power of predictive text
 ========================================================
 
-For more details on authoring R presentations please visit <https://support.rstudio.com/hc/en-us/articles/200486468>.
+KILOS™ Predictive Text unlocks the power of predictive text at your fingertips! 
+At least... It unlocks a nice effort and a so-so experience, but it holds a lot of promise, sort of.. a bit.. well at least I tried.
 
-- Bullet 1
-- Bullet 2
-- Bullet 3
+KILOS™ consists of 3 parts:
 
-Slide With Code
+- Model
+- Predictive Algorithm
+- Application
+
+Model
 ========================================================
 
-```{r}
-summary(cars)
+We've sampled 15% of supplied twitter, news & blog data, tokenized them all, resulting in >1.4M English tokenized sentences.
+
+These were used as input for the n-gram tokenizer. For accuracy we've generated all 1-grams until 7-grams (as far as possible) of these sentences and generated frequency tables for each unique gram.
+
+We stored these using a lookup part (first n-1 tokens), the so called datum and the suggest part (the n-th gram)
+
+For speed reasons we only kept tokens with frequency > 1 and only the unique lookups, so only 1 suggestion for each lookup combination exists.
+
+The resulting n-grams:
+
+```{r, echo=FALSE}
+source("utils.R")
+x<-missingVar("ngramLookupTables","en_US")
+table <- t(as.data.frame(sapply(ngramLookupTables, nrow), row.names = c("1-gram", "2-gram", "3-gram", "4-gram", "5-gram", "6-gram", "7-gram")))
+rownames(table) <- c("#")
+knitr::kable(table)
 ```
+
+Predictive Algorithm
+========================================================
+
+
 
 Slide With Plot
 ========================================================
 
-```{r, echo=FALSE}
-plot(cars)
-```
+
+
+ <https://tomlous.shinyapps.io/capstone/>.
