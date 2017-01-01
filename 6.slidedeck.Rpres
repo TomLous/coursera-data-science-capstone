@@ -8,7 +8,8 @@ Unlocking the power of predictive text
 ========================================================
 
 KILOS™ Predictive Text unlocks the power of predictive text at your fingertips! 
-At least... It unlocks a nice effort and a so-so experience, but it holds a lot of promise, sort of.. a bit.. well at least I tried.
+
+The tool is named KILOS™ because it contains thousands of grams.
 
 Anyway: KILOS™ consists of 3 parts:
 
@@ -69,5 +70,7 @@ Finally the condensed lookuptables and prediction algorithm are stored and made 
 The app uses twitter's typeahead plugin to really experience the autocomplete & suggestion possibilities of the combined model & algorithm. 
 
 While you are typing the algorithm tries to partially lookup the string aleady and makes suggestions as you type. The combination of the reaktive nature and speed of the condensed algorithm & model truely highten the user experience.
+
+UI: Use up/down arrow keys & enter to select a suggestion or the right arrow key to tigger the autocomplete.
 
 Check it out yourself at: [KILOS™ Predictive Text](https://tomlous.shinyapps.io/capstone/)
