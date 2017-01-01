@@ -3,3 +3,7 @@
 input.tt-hint, .tt-input,input.typeahead{
  height: 50px;
  }
+ 
+.shiny-bound-output {
+    visibility: hidden;
+}

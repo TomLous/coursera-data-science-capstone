@@ -26,13 +26,14 @@ shinyServer(function(input, output, session) {
     log(paste("input:",text))
     if(!is.null(text) && nchar(text)>0){
       endOfWord <- grepl("[^a-z]$", text)
-      text <- preProcessData(text)
-      if(nchar(text)>0){
+      preprocessedText <- preProcessString(text)
+      if(nchar(preprocessedText)>0){
         #suggestion <- predictSuggest(text, ngramLookupTables, completeWord = endOfWord)
-        suggestions <- predictTop(text, ngramLookupTables, completeWord = endOfWord)
-        #update_typeahead
+        suggestions <- predictTop(preprocessedText, ngramLookupTables, completeWord = endOfWord)
+        log(suggestions[[1]])
+        
         dataset <- suggestionsToTypeAhead(text,suggestions,endOfWord)
-        #tokens <- sapply(as.numeric(rownames(dataset)), toString)
+        
         tokens <- unname(sapply(dataset$sentence, strsplit, split=" "))
         session$sendCustomMessage(type = "updateSuggestions", list(
           id="text"
@@ -40,7 +41,7 @@ shinyServer(function(input, output, session) {
           ,local=dataset
           ,valueKey="sentence"
           ,tokens=tokens
-          ,template = HTML("<p class='suggest'>{{sentence}}</p>")
+          ,template = HTML("<p class='suggest'>{{suggestion}}</p>")
           )
         )
         paste(dataset[1,"sentence"])
@@ -56,8 +57,10 @@ shinyServer(function(input, output, session) {
     suggestions$sentence <- sapply(suggestions$lookup, concatWithOverlap, str1=text)
     if(endOfWord){
       suggestions$suggestion <- suggestions$suggest
+      suggestions$sentence <- paste0(suggestions$sentence, suggestions$suggest)
     }else{
       suggestions$suggestion <- paste(suggestions$lookup, suggestions$suggest)
+      suggestions$sentence <- paste(suggestions$sentence, suggestions$suggest)
     }
     
     suggestions[,c("suggestion", "sentence")]

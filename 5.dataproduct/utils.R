@@ -251,11 +251,16 @@ preProcessData <- function(datasetIn){
   dataset <- unlist(strsplit(dataset, "[\\.\\!\\?:;]+"))
   dataset <- gsub("[`'’‘']", "'", dataset)
   dataset <- gsub("[^a-z0-9\\'\\-_\\\\\\s]", " ", dataset)
+  dataset <- gsub("\\s+", " ", dataset)
   dataset <- trimws(dataset)
   dataset <- dataset[!nchar(dataset) == 0]
   return(dataset)
 }
 
+
+preProcessString <- function(str){
+  paste(preProcessData(str), collapse = ' ')
+}
 
 missingVar <- function(varname, locale, postfix=NULL){
   if(!exists(varname, envir=globalenv())){
@@ -357,12 +362,14 @@ recursiveLookup <- function(nIter, nMax, terms, phraseTables, alpha, suggestions
 }
 
 concatWithOverlap<- function(str1, str2){
-  minI <- min(nchar(str1),nchar(str2))
+  clean1 <- preProcessString(str1)
+  clean2 <- preProcessString(str2)
+  minI <- min(nchar(clean1),nchar(clean2))
   
-  #cat(paste0("Testing `",str1,"` `",str2,"`\n"))
+  #cat(paste0("Testing `",clean1,"` `",str2,"`\n"))
   repeat{
-    left <- str_sub(str2,1,minI)
-    right <- str_sub(str1,-minI)
+    left <- str_sub(clean2,1,minI)
+    right <- str_sub(clean1,-minI)
     if(left == right){
       #cat(paste("Found",minI,"\n"))
       loop <- FALSE 

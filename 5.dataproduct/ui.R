@@ -24,7 +24,10 @@ shinyUI(fluidPage(
   ),
   
   mainPanel(
-    titlePanel("Predictive Text"),
+    titlePanel("KILOS™ Predictive Text"),
+    p("Below is a text input based on a simplified predictive text model using n-grams. It allows for non-character input, but works better without."),
+    p("The tool is named KILOS™ because it contains thousands of grams."),
+    p("Use up/down arrow keys & enter to select a suggestion or the right arrow key to tigger the autocomplete."),
     textInput.typeahead(
       id="text"
       ,placeholder="Type a sentence"
@@ -32,8 +35,8 @@ shinyUI(fluidPage(
       ,valueKey="sentence"
       ,tokens=c()
       ,template = HTML("<p class='suggest'>{{suggestion}}</p>")
-    ),
-    br(),br(),
+    )
+    ,br(),br(),
     verbatimTextOutput("suggest"),
     verbatimTextOutput("debug")
   )
